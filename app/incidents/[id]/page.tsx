@@ -19,7 +19,7 @@ import Link from "next/link";
 
 export default function IncidentDetailPage() {
   const params = useParams();
-  const id = params.id as string;
+  const id = (params?.id as string) || "";
 
   const [incident, setIncident] = useState<IncidentDetail | null>(null);
   const [loading, setLoading] = useState(true);
@@ -27,6 +27,7 @@ export default function IncidentDetailPage() {
   const [analyzing, setAnalyzing] = useState(false);
 
   const fetchIncident = async () => {
+    if (!id) return;
     try {
       const data = await incidentsApi.getById(id);
       setIncident(data);
