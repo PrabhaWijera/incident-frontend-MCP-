@@ -3,7 +3,7 @@
 import { useEffect, useState } from "react";
 import { useParams } from "next/navigation";
 import { incidentsApi, aiApi } from "@/lib/api";
-import { IncidentDetail, IncidentStatus } from "@/lib/types";
+import { IncidentDetail, IncidentStatus, IncidentAnalysisResponse } from "@/lib/types";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/Card";
 import { Button } from "@/components/ui/Button";
 import { Badge } from "@/components/ui/Badge";
@@ -25,6 +25,7 @@ export default function IncidentDetailPage() {
   const [loading, setLoading] = useState(true);
   const [updating, setUpdating] = useState(false);
   const [analyzing, setAnalyzing] = useState(false);
+  const [latestAnalysis, setLatestAnalysis] = useState<IncidentAnalysisResponse | null>(null);
 
   const fetchIncident = async () => {
     if (!id) return;
@@ -61,8 +62,8 @@ export default function IncidentDetailPage() {
   const handleAnalyze = async () => {
     setAnalyzing(true);
     try {
-      await aiApi.analyzeIncident(id);
-      await fetchIncident();
+      const analysis = await aiApi.analyzeIncident(id);
+      setLatestAnalysis(analysis);
     } catch (error) {
       console.error("Error analyzing incident:", error);
     } finally {
@@ -70,9 +71,9 @@ export default function IncidentDetailPage() {
     }
   };
 
-  const handleApproveAction = async (actionIndex: number) => {
+  const handleApproveAction = async (action: { action: string; description: string; confidence?: number; requiresApproval?: boolean }) => {
     try {
-      await incidentsApi.approveAction(id, actionIndex);
+      await incidentsApi.approveAction(id, action);
       await fetchIncident();
     } catch (error) {
       console.error("Error approving action:", error);
@@ -239,64 +240,64 @@ export default function IncidentDetailPage() {
               </CardContent>
             </Card>
 
-            {incident.aiAnalysis && (
+            {latestAnalysis && (
               <Card>
                 <CardHeader>
                   <CardTitle className="flex items-center gap-2">
                     <Brain className="w-5 h-5 text-blue-600" />
                     AI Analysis
                     <Badge variant="info" className="ml-2 text-xs">
-                      Powered by NVIDIA NIM
+                      Read-only via MCP
                     </Badge>
                   </CardTitle>
                 </CardHeader>
                 <CardContent className="space-y-4">
-                  {incident.aiAnalysis.rootCause && (
+                  {latestAnalysis.explanation && (
                     <div className="border-l-4 border-blue-500 pl-4">
                       <div className="flex items-center justify-between mb-2">
                         <p className="text-sm font-semibold text-gray-900">
-                          Root Cause Analysis
+                          Root Cause / Explanation
                         </p>
-                        {incident.aiAnalysis.rootCauseProbability && (
+                        {latestAnalysis.aiAnalysis?.rootCauseProbability && (
                           <Badge
                             variant={
-                              incident.aiAnalysis.rootCauseProbability >= 0.8
+                              latestAnalysis.aiAnalysis.rootCauseProbability >= 0.8
                                 ? "success"
-                                : incident.aiAnalysis.rootCauseProbability >= 0.6
+                                : latestAnalysis.aiAnalysis.rootCauseProbability >= 0.6
                                 ? "warning"
                                 : "default"
                             }
                             className="text-xs"
                           >
-                            {Math.round(incident.aiAnalysis.rootCauseProbability * 100)}%
+                            {Math.round(latestAnalysis.aiAnalysis.rootCauseProbability * 100)}%
                             confidence
                           </Badge>
                         )}
                       </div>
                       <p className="text-sm text-gray-700 bg-blue-50 p-4 rounded-lg leading-relaxed">
-                        {incident.aiAnalysis.rootCause}
+                        {latestAnalysis.explanation}
                       </p>
                       <p className="text-xs text-gray-500 mt-2 flex items-center gap-1">
                         <Brain className="w-3 h-3" />
-                        Analyzed by AI (Llama 3.1 / Mistral models)
+                        Analyzed via MCP JSON-RPC (read-only, on-demand)
                       </p>
                     </div>
                   )}
 
-                  {incident.aiAnalysis.suggestedActions &&
-                    incident.aiAnalysis.suggestedActions.length > 0 && (
+                  {latestAnalysis.aiAnalysis?.suggestedActions &&
+                    latestAnalysis.aiAnalysis.suggestedActions.length > 0 && (
                       <div>
                         <div className="flex items-center justify-between mb-3">
                           <p className="text-sm font-semibold text-gray-900">
                             AI Suggested Actions
                           </p>
                           <Badge variant="default" className="text-xs">
-                            {incident.aiAnalysis.suggestedActions.length} action
-                            {incident.aiAnalysis.suggestedActions.length !== 1 ? "s" : ""}
+                            {latestAnalysis.aiAnalysis.suggestedActions.length} action
+                            {latestAnalysis.aiAnalysis.suggestedActions.length !== 1 ? "s" : ""}
                           </Badge>
                         </div>
                         <div className="space-y-3">
-                          {incident.aiAnalysis.suggestedActions.map((action, index) => (
+                          {latestAnalysis.aiAnalysis.suggestedActions.map((action, index) => (
                             <div
                               key={index}
                               className="border border-blue-200 rounded-lg p-4 bg-gradient-to-r from-blue-50 to-gray-50 hover:shadow-md transition-shadow"
@@ -327,7 +328,7 @@ export default function IncidentDetailPage() {
                               </div>
                               {action.requiresApproval && (
                                 <Button
-                                  onClick={() => handleApproveAction(index)}
+                                  onClick={() => handleApproveAction(action)}
                                   variant="primary"
                                   size="sm"
                                   className="mt-2"

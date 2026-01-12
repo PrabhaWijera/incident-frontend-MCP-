@@ -27,6 +27,28 @@ export interface AIAnalysis {
     isDegrading: boolean;
     degradationRate: number;
   };
+  aiSeverity?: IncidentSeverity;
+  aiCategory?: IncidentCategory;
+  statusSuggestion?: "needs_investigation" | "likely_root_cause_identified" | "ready_for_resolution";
+}
+
+/**
+ * Complete AI analysis response from MCP analyzeIncident tool
+ * This matches the structure returned by the backend aiAnalysis.service.js
+ */
+export interface IncidentAnalysisResponse {
+  incident: {
+    id: string;
+    title: string;
+    status: IncidentStatus;
+    severity: IncidentSeverity;
+    category: IncidentCategory;
+  };
+  aiAnalysis: AIAnalysis;
+  explanation: string;
+  logsAnalyzed: number;
+  errorCount: number;
+  warningCount: number;
 }
 
 export interface Service {
@@ -58,6 +80,10 @@ export interface Incident {
   category: IncidentCategory;
   source: "system" | "engineer";
   status: IncidentStatus;
+  /**
+   * @deprecated AI analysis is now on-demand only via MCP tools.
+   * Use latestAnalysis from analyzeIncident MCP tool instead.
+   */
   aiAnalysis?: AIAnalysis;
   timeline?: TimelineEvent[];
   resolvedAt?: string;
@@ -87,19 +113,8 @@ export interface SystemStats {
     totalIncidents: number;
     openIncidents: number;
     resolvedIncidents: number;
-    autoResolvedIncidents: number;
-    averageResolutionTime: number;
+    totalLogs: number;
   };
-  byCategory: Array<{ _id: string; count: number }>;
-  bySeverity: Array<{ _id: string; count: number }>;
-  recentIncidents: Array<{
-    _id: string;
-    title: string;
-    status: IncidentStatus;
-    severity: IncidentSeverity;
-    category: IncidentCategory;
-    createdAt: string;
-  }>;
 }
 
 export interface IncidentDetail extends Incident {

@@ -5,13 +5,12 @@ import { systemApi, incidentsApi, servicesApi } from "@/lib/api";
 import { SystemStats, Incident, Service } from "@/lib/types";
 import { StatsCard } from "@/components/StatsCard";
 import { IncidentCard } from "@/components/IncidentCard";
-import { EventSimulator } from "@/components/EventSimulator";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/Card";
 import {
   AlertTriangle,
   CheckCircle,
   Activity,
-  TrendingUp,
+  FileText,
   RefreshCw,
 } from "lucide-react";
 import { Button } from "@/components/ui/Button";
@@ -100,9 +99,9 @@ export default function Dashboard() {
                 variant="success"
               />
               <StatsCard
-                title="Avg Resolution"
-                value={formatDuration(stats.summary.averageResolutionTime)}
-                icon={TrendingUp}
+                title="Total Logs"
+                value={stats.summary.totalLogs}
+                icon={FileText}
               />
             </div>
 
@@ -134,56 +133,19 @@ export default function Dashboard() {
               </Card>
 
               <div>
-                <EventSimulator />
+                <Card>
+                  <CardHeader>
+                    <CardTitle>System Events</CardTitle>
+                  </CardHeader>
+                  <CardContent>
+                    <p className="text-sm text-gray-600">
+                      System incidents are now generated from real monitored services via health
+                      checks. Use the demo company server to create realistic failures instead of
+                      synthetic /api/system/events calls.
+                    </p>
+                  </CardContent>
+                </Card>
               </div>
-            </div>
-
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-              <Card>
-                <CardHeader>
-                  <CardTitle>Incidents by Category</CardTitle>
-                </CardHeader>
-                <CardContent>
-                  <div className="space-y-2">
-                    {stats.byCategory.map((item) => (
-                      <div
-                        key={item._id}
-                        className="flex items-center justify-between p-2 bg-gray-50 rounded"
-                      >
-                        <span className="text-sm font-medium text-gray-700 capitalize">
-                          {item._id}
-                        </span>
-                        <span className="text-sm font-bold text-gray-900">
-                          {item.count}
-                        </span>
-                      </div>
-                    ))}
-                  </div>
-                </CardContent>
-              </Card>
-
-              <Card>
-                <CardHeader>
-                  <CardTitle>Incidents by Severity</CardTitle>
-                </CardHeader>
-                <CardContent>
-                  <div className="space-y-2">
-                    {stats.bySeverity.map((item) => (
-                      <div
-                        key={item._id}
-                        className="flex items-center justify-between p-2 bg-gray-50 rounded"
-                      >
-                        <span className="text-sm font-medium text-gray-700 capitalize">
-                          {item._id}
-                        </span>
-                        <span className="text-sm font-bold text-gray-900">
-                          {item.count}
-                        </span>
-                      </div>
-                    ))}
-                  </div>
-                </CardContent>
-              </Card>
             </div>
           </>
         )}

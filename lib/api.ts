@@ -8,6 +8,7 @@ import type {
   IncidentStatus,
   IncidentSeverity,
   IncidentCategory,
+  IncidentAnalysisResponse,
 } from "./types";
 
 const API_BASE_URL = process.env.NEXT_PUBLIC_API_URL || "http://localhost:5000";
@@ -52,9 +53,9 @@ export const incidentsApi = {
     return response.data as Incident;
   },
 
-  approveAction: async (id: string, actionIndex: number) => {
+  approveAction: async (id: string, action: { action: string; description: string; confidence?: number; requiresApproval?: boolean }) => {
     const response = await api.post(`/api/incidents/${id}/approve-action`, {
-      actionIndex,
+      action,
     });
     return response.data;
   },
@@ -75,11 +76,6 @@ export const logsApi = {
 
 // System API
 export const systemApi = {
-  createEvent: async (type: "CPU_SPIKE" | "DB_TIMEOUT" | "AUTH_FAILURE", value?: number) => {
-    const response = await api.post("/api/system/events", { type, value });
-    return response.data;
-  },
-
   getStats: async () => {
     const response = await api.get("/api/system/stats");
     return response.data as SystemStats;
@@ -101,11 +97,57 @@ export const systemApi = {
   },
 };
 
-// AI API
+// AI API (via MCP JSON-RPC)
+// Uses Model Context Protocol (MCP) JSON-RPC 2.0 interface for read-only AI analysis
 export const aiApi = {
-  analyzeIncident: async (incidentId: string) => {
-    const response = await api.get(`/api/ai/analysis/${incidentId}`);
-    return response.data;
+  /**
+   * Analyze incident using NVIDIA NIM AI via MCP tools
+   * 
+   * This calls the backend MCP JSON-RPC endpoint which provides read-only AI analysis.
+   * The analysis never modifies database state - it only returns recommendations.
+   * 
+   * MCP Response Format:
+   * {
+   *   jsonrpc: "2.0",
+   *   id: ...,
+   *   result: {
+   *     content: [
+   *       {
+   *         type: "json",
+   *         data: { ...analysis result... }
+   *       }
+   *     ]
+   *   }
+   * }
+   * 
+   * @param incidentId - MongoDB ObjectId of the incident to analyze
+   * @returns Analysis result object with AI insights, root cause, suggested actions, etc.
+   * @throws Error if MCP tool call fails
+   */
+  analyzeIncident: async (incidentId: string): Promise<IncidentAnalysisResponse> => {
+    const response = await api.post("/api/mcp/jsonrpc", {
+      jsonrpc: "2.0",
+      id: Date.now(),
+      method: "tools/call",
+      params: {
+        name: "analyzeIncident",
+        arguments: { incidentId },
+      },
+    });
+
+    // Extract data from MCP JSON-RPC response structure
+    const resultData = response.data?.result?.content?.[0]?.data;
+    
+    if (!resultData) {
+      // Check for JSON-RPC error
+      if (response.data?.error) {
+        throw new Error(response.data.error.message || "MCP tool call failed");
+      }
+      throw new Error("Invalid MCP response: missing result data");
+    }
+
+    // Data is already parsed JSON from backend
+    return resultData as IncidentAnalysisResponse;
   },
 };
 
